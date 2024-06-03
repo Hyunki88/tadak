@@ -7,8 +7,9 @@
       <div class="underline"></div>
     </div>
     <div id="feedback">
-      <p id="cpm">CPM: {{cpm}} Average CPM: {{Math.round(totalCpm/finished)}}</p>
-      <p id="wpm">WPM: {{wpm}} Average WPM: {{Math.round(totalWpm/finished)}}</p>
+      <p id="cpm">CPM: {{cpm}} Average CPM: {{Math.round(totalCpm/finished)}} maxCpm: {{maxCpm}}</p>
+      <p id="wpm">WPM: {{wpm}} Average WPM: {{Math.round(totalWpm/finished)}} maxWpm: {{maxWpm}}</p>
+      <p id="accuracy">Accuracy : {{accuracy}}</p>
     </div>
   </div>
 </template>
@@ -18,11 +19,10 @@ import Hangul from 'hangul-js';
 export default {
   name: 'MainContent',
   props: {
-    msg: String
   },
   data() {
     return {
-      text: "지금은 테스트중입니다.",
+      text: "",
       inputText: '',
       wordCount: 0,
       charCount: 0,
@@ -31,8 +31,12 @@ export default {
       cpm: 0,
       totalCpm: 0,
       totalWpm: 0,
+      maxCpm: 0,
+      maxWpm: 0,
       finished: 0,
-      start: false
+      incorrectWord: 0,
+      start: false,
+      accuracy: null
     };
   },
   methods: {
@@ -58,6 +62,8 @@ export default {
     
     // 단어 수 계산
     this.wordCount = this.inputText.trim().split(/\s+/).length;
+
+    this.accuracy = Math.round(((this.inputText.length - this.incorrectWord)/this.inputText.length)* 100)
       },
     calculateSpeed() {
       this.wpm = Math.round(this.wordCount / (this.elapsedTime / 60));
@@ -65,20 +71,41 @@ export default {
     },
     getFormattedText() {
       let displayText = '';
+      let incorrectWordCount = 0;
+
       for (let i = 0; i < this.inputText.length; i++) {
-        if (this.inputText[i] === this.text[i]) {
-          displayText += `<span class="correct">${this.inputText[i]}</span>`;
-        } else {
-          displayText += `<span class="incorrect">${this.inputText[i]}</span>`;
+        if (i < this.text.length) { // inputText가 text의 길이를 초과하는지 확인
+          const inputTextDisassembled = Hangul.disassemble(this.inputText[i]);
+          const textDisassembled = Hangul.disassemble(this.text[i]);
+
+          if (this.inputText[i] === this.text[i]) {
+            displayText += `<span class="correct">${this.text[i]}</span>`;
+          } else if((inputTextDisassembled.length < textDisassembled.length) && (i < this.inputText.length - 1)){
+            displayText += `<span class="incorrect">${this.text[i]}</span>`;
+            incorrectWordCount++;
+          } else if (inputTextDisassembled.length === textDisassembled.length) {
+            displayText += `<span class="incorrect">${this.text[i]}</span>`;
+            incorrectWordCount++;
+          } else if((inputTextDisassembled.length > textDisassembled.length) && (i < this.inputText.length - 1)){
+            displayText += `<span class="incorrect">${this.text[i]}</span>`;
+            incorrectWordCount++;
+          } else {
+            displayText += this.text[i];
+          }
+
+          this.incorrectWord = incorrectWordCount;
         }
       }
+
+      // 남은 텍스트 표시
       if (this.inputText.length < this.text.length) {
         displayText += this.text.slice(this.inputText.length);
       }
+
       return displayText;
     },
     handleEnter() {
-      if (this.inputText.length < this.text.length) {
+      if ((this.inputText.length < this.text.length) && this.accuracy < 50) {
         return;
       } else {
         this.start = false;
@@ -87,9 +114,14 @@ export default {
         this.finished++;
         this.totalCpm += tempCpm;
         this.totalWpm += tempWpm;
+        if(tempCpm > this.maxCpm){
+          this.maxCpm = tempCpm;
+        }
+        if(tempWpm > this.maxWpm){
+          this.maxWpm = tempWpm;
+        }
+        this.incorrectWord = 0;
         this.elapsedTime = 0;
-        this.cpm = 0;
-        this.wpm = 0;
         this.inputText = ''; // 현재 입력한 내용을 모두 지움
         this.$refs.typingInput.value = ''; // 입력 필드를 지움
         this.fetchRandomSentence(); // 새로운 문장 가져오기
@@ -108,10 +140,10 @@ export default {
         this.wpm = 0;
         this.cpm = 0;
       } else {
-        this.elapsedTime += 0.1;
+        this.elapsedTime += 0.05;
         this.calculateSpeed();
       }
-    }, 100);  // 주기를 100ms로 변경
+    }, 50);  // 주기를 50ms로 변경
     }
 };
 </script>
@@ -161,7 +193,7 @@ export default {
   text-align: left;
 }
 
-#cpm, #wpm {
+#cpm, #wpm, #accuracy {
   font-size: 1.2em;
   margin-bottom: 20px;
 }

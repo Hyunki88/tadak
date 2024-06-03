@@ -5,6 +5,8 @@ const port = 3000;
 
 app.use(cors());
 
+let selectedSentences = []; // 이전에 선택된 문장들을 저장할 배열
+
 app.get('/', (req, res) => {
   res.send('Server is running');
 });
@@ -22,7 +24,19 @@ app.get('/random-sentence', (req, res) => {
     "도전 없는 삶은 무의미하다.",
     "삶은 우리가 만드는 것이다."
   ];
-  const randomSentence = sentences[Math.floor(Math.random() * sentences.length)];
+
+  // 이전에 선택된 문장들과 중복되지 않는 문장을 선택
+  let availableSentences = sentences.filter(sentence => !selectedSentences.includes(sentence));
+  const randomSentence = availableSentences[Math.floor(Math.random() * availableSentences.length)];
+  
+  // 선택된 문장을 이전에 선택된 문장들 목록에 추가
+  selectedSentences.push(randomSentence);
+
+  // 이전에 선택된 문장들이 문장 배열의 길이와 같아지면 초기화
+  if (selectedSentences.length === sentences.length) {
+    selectedSentences = [];
+  }
+
   res.json({ sentence: randomSentence });
 });
 
